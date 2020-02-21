@@ -16,6 +16,12 @@ GO
 SELECT project_no, project_name
  FROM Project
  WHERE budget < dbo.compute_costs(25)
+
+SELECT dbo.compute_costs(DEFAULT);
+SELECT dbo.compute_costs(15)
+SELECT dbo.compute_costs(35)
+
+
  ------------------------------------
  -- Создание возвращающей табличное значение функции
  GO
@@ -27,7 +33,7 @@ SELECT project_no, project_name
 	AND project_no = @pr_number)
 GO
 
-SELECT  * FROM employees_in_project('p3')
+SELECT  * FROM employees_in_project('p2')
 --------------------------------------------------------
 
 --Multistatement
@@ -44,6 +50,8 @@ AS
 		RETURN
 	END
 GO
+
+
 -----------------------------------------------------
 
 -- SCHEMABINDING
@@ -61,6 +69,7 @@ AS
 GO
 
 SELECT * FROM get_flname2 ('Julia')
+DROP TABLE Employee
 SELECT * FROM get_flname2 ('Alexander')
 -------------------------------
 -- Применение APPLY
@@ -118,3 +127,5 @@ EXEC insertProc @Dallas;
 GO
 
 SELECT * FROM #dallasTable
+
+
