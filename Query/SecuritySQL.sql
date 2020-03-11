@@ -1,0 +1,2 @@
+CREATE LOGIN Sanya2 WITH PASSWORD = 'sanya'
+
