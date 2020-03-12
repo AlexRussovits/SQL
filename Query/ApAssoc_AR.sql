@@ -27,15 +27,11 @@ NOT NULL, OwnerPhone VARCHAR(12) NULL, OwnerEmail VARCHAR(50) NULL, f_no INT NOT
 CREATE TABLE TariffArea
 (TariffID INT IDENTITY(1,1) PRIMARY KEY NOT NULL,
 TariffPriceArea MONEY NOT NULL,
-TariffDate DATE DEFAULT GETDATE() NOT NULL);
+TariffDate DATE NOT NULL);
 
-CREATE TABLE TariffMWh
-(TariffID INT IDENTITY(1,1) PRIMARY KEY NOT NULL,
-TariffPriceMWh MONEY NOT NULL,
-TariffDate DATE DEFAULT GETDATE() NOT NULL);
 
-CREATE TABLE Counter
-()
+CREATE TABLE CounterElect (CounterDate DATE PRIMARY KEY NOT NULL,
+CounterMWH INT NOT NULL, userEnter VARCHAR(20) NULL, userDate DATETIME NULL)
 
 
 -- Add foreign keys
@@ -70,16 +66,20 @@ INSERT INTO Owners VALUES
 ('49503143737', 'Andzhelika', 'Mirzova', '+37258147465', 'andzhelika.mirzova@hotmail.com', 9),
 ('39202273737', 'Nikita', 'Milanov', '+37253698741', 'nikita.milanov@gmail.com', 10);
 
-INSERT INTO TariffArea (TariffPriceArea,TariffDate) VALUES (66.26, DEFAULT);
+INSERT INTO TariffArea (TariffPriceArea,TariffDate) VALUES (0.61, '2020-03-28');
 
-/*INSERT INTO TariffMWh (TariffPriceMWh,TariffDate) VALUES ();*/
+INSERT INTO CounterElect VALUES ('2020-01-28', 18250, 'adminD','2020-01-31 18:21:54');
 
+-- Select tables
 SELECT * FROM Owners
 SELECT * FROM Flats
 SELECT * FROM TariffArea
+SELECT * FROM CounterElect
+
+select tariffpriceArea FROM TariffArea 
 
 -- Drop tables
 DROP TABLE Owners
 DROP TABLE Flats
 DROP TABLE TariffArea
-DROP TABLE TariffMWh
+DROP TABLE CounterElect
