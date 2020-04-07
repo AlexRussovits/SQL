@@ -89,7 +89,8 @@ CREATE TABLE TestTable(
 [CategoryId] [INT] NOT NULL,
 [ProductName] [VARCHAR](100) NOT NULL,
 [Price] [Money] NULL
-)
+)
+
 
 
 GO
@@ -164,7 +165,17 @@ Price = 200
 WHERE ProductName = 'Chair'
 
 --Удаляем запись
-DELETE TestTable WHERE ProductName = 'Наименование товара'SELECT * FROM AutiTestTableSELECT * FROM TestTableDISABLE TRIGGER TRG_Audit_TestTable ON TestTable; -- выключение триггераENABLE TRIGGER TRG_Audit_TestTable ON TestTable; -- включение триггера
+DELETE TestTable WHERE ProductName = 'Наименование товара'
+
+SELECT * FROM AutiTestTable
+SELECT * FROM TestTable
+
+DISABLE TRIGGER TRG_Audit_TestTable ON TestTable; -- выключение триггера
+
+ENABLE TRIGGER TRG_Audit_TestTable ON TestTable; -- включение триггера
+
+
+
 
 
 

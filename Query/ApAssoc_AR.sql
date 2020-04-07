@@ -1,85 +1,170 @@
 USE master;
 -- Create Database
-CREATE DATABASE ApartmentAssociation_AR
-ON (NAME=ApartmentAssociation_AR_dat,
-FILENAME = 'D:\SQL\ApartmentAssociation_AR.mdf',
-SIZE = 5,
-MAXSIZE = 100,
-FILEGROWTH = 5)
+CREATE DATABASE ApartmentAssociation2_AR
 
-LOG ON (NAME= ApartmentAssociation_AR_log,
-FILENAME = 'D:\SQL\ApartmentAssociation_AR.ldf',
-SIZE = 10,
-MAXSIZE = 100,
-FILEGROWTH = 10);
+USE ApartmentAssociation2_AR;
 
-USE ApartmentAssociation_AR;
-
--- Create Tables
+-- Create Table Flats
 
 CREATE TABLE Flats (f_no INT PRIMARY KEY, apsquare FLOAT NOT NULL, typeofheating VARCHAR(30) DEFAULT 'Central' NOT NULL, 
 CHECK (typeofheating IN ('Central', 'Gas', 'Electricty')), percentage FLOAT NOT NULL, OwnerID VARCHAR(11) NOT NULL)
 
+-- Add foreign keys
+ALTER TABLE Flats ADD CONSTRAINT FK_OwnerID FOREIGN KEY (OwnerID) REFERENCES Owners(OwnerID);
 
+-- Drop foreign keys
+ALTER TABLE Flats DROP CONSTRAINT FK_OwnerID
+
+-- Создание таблицы 
 CREATE TABLE Owners (OwnerID VARCHAR(11) PRIMARY KEY, OwnerFirstName VARCHAR(30) NOT NULL, OwnerLastName VARCHAR(30)
-NOT NULL, OwnerPhone VARCHAR(12) NULL, OwnerEmail VARCHAR(50) NULL, f_no INT NOT NULL)
+NOT NULL, OwnerPhone VARCHAR(12) NULL, OwnerEmail VARCHAR(50) NULL)
 
+-- Создание таблицы TariffArea
 CREATE TABLE TariffArea
 (TariffID INT IDENTITY(1,1) PRIMARY KEY NOT NULL,
 TariffPriceArea MONEY NOT NULL,
 TariffDate DATE NOT NULL);
 
-
+--Создание таблицы CounterElect
 CREATE TABLE CounterElect (CounterDate DATE PRIMARY KEY NOT NULL,
-CounterMWH INT NOT NULL, userEnter VARCHAR(20) NULL, userDate DATETIME NULL)
+CounterMWH FLOAT NOT NULL, userEnter VARCHAR(20) DEFAULT 'admin' NOT NULL, userDate DATE NOT NULL)
+
+--Создание Истории для Владельцев
+CREATE TABLE OwnerHistory (
+    HistoryID INT IDENTITY PRIMARY KEY,
+    Operation NVARCHAR(200) NOT NULL,
+    CreateAt DATETIME NOT NULL DEFAULT GETDATE()
+)
 
 
--- Add foreign keys
-ALTER TABLE Flats ADD CONSTRAINT FK_OwnerID FOREIGN KEY (OwnerID) REFERENCES Owners(OwnerID);
-ALTER TABLE Owners ADD CONSTRAINT FK_FlatsNo FOREIGN KEY (f_no) REFERENCES Flats (f_no);
+-- Добавление счётчика при помощи процедуры 
+GO 
+	CREATE PROC AddCounterElect (@CounterMWH FLOAT, @Date DATE) AS 
+		BEGIN
+			IF DAY(@Date) <= 28
+				BEGIN
+					INSERT INTO CounterElect VALUES (EOMONTH (@Date,-1),@CounterMWH, DEFAULT, @Date)
+				END
+			ELSE
+				BEGIN
+					INSERT INTO CounterElect VALUES (EOMONTH (@Date,-2), @CounterMWH, DEFAULT, @Date)
+				END
+		END
+GO
 
--- Drop foreign keys
-ALTER TABLE Flats DROP CONSTRAINT FK_OwnerID
-ALTER TABLE Owners DROP CONSTRAINT FK_FlatsNo
+-- В этой таблице будет содержаться информация, которая будет показывать, сколько нужно будет выплатить владельцу квартиры
+CREATE TABLE PayoffFlats(f_no INT NOT NULL, 
+apsquare FLOAT NOT NULL, percentage FLOAT NOT NULL,
+heatingFlatsSquare FLOAT NOT NULL,
+FlatSquarePrice MONEY NOT NULL,
+Tariff FLOAT NOT NULL,
+FlatPrice MONEY NOT NULL,
+ToDate DATE NOT NULL,
+CONSTRAINT FK_f_no FOREIGN KEY(f_no) REFERENCES Flats (f_no) ON DELETE CASCADE,
+CONSTRAINT FK_ToDate FOREIGN KEY(ToDate) REFERENCES CounterElect (CounterDate) ON DELETE CASCADE)
 
-INSERT INTO Flats VALUES 
-(1, 62, 'Electricty', 0.15, '50206213737'),
-(2, 54, 'Central', 0.1, '50103153737'),
-(3, 50, 'Gas', 0.08, '50011163737'),
-(4, 55, 'Central', 0.1,'49908283737'),
-(5, 47, 'Electricty', 0.13, '49706123737'),
-(6, 49, 'Gas', 0.11, '39607143737'),
-(7, 51, 'Central', 0.1 ,'49701183737'),
-(8, 60, 'Electricty', 0.19, '39805143737'),
-(9, 64, 'Gas', 0.07,'49503143737'),
-(10, 70, 'Central', 0.1, '39202273737');
+-- Процедура, которая будет производить вычисления выплаты за квартиру
+GO
+	CREATE PROC CalculationOfElectricity AS 
+	-- Декларируем переменные
+		BEGIN
+			DECLARE @counter1 AS FLOAT
+			DECLARE @counter2 AS FLOAT
+			DECLARE @result AS FLOAT
+			DECLARE @perApSquare AS FLOAT
+			DECLARE @MonthPrice AS FLOAT
+			DECLARE @tariff AS FLOAT
+			DECLARE @date AS DATE
 
-INSERT INTO Owners VALUES 
-('50206213737', 'Aleksander', 'Russovits', '+37253002573', 'sasikrus2002@gmail.com', 1),
-('50103153737', 'Renat', 'Barabanov', '+37258787854', 'renat.barabanov@gmail.com', 2),
-('50011163737', 'Denis', 'Gospadarov', '+37251874521', 'denis.gospadarov@mail.ru', 3),
-('49908283737', 'Nina', 'Sergeyeva', '+37256547962', 'nina.sergeyeva@gmail.com', 4),
-('49706123737', 'Ekaterina', 'Varlamova', '+37253254712', 'ekaterina.varlamova@mail.ru', 5),
-('39607143737', 'Yegor', 'Sidorov', '+37258984120', 'yegor.sidorov@hotmail.com', 6),
-('49701183737', 'Maria', 'Tamm', '+37251256978', 'maria.tamm@gmail.com', 7),
-('39805143737', 'Vsevolod', 'Orlov', '+37253114477', 'vsevolod.orlov@bk.ru', 8),
-('49503143737', 'Andzhelika', 'Mirzova', '+37258147465', 'andzhelika.mirzova@hotmail.com', 9),
-('39202273737', 'Nikita', 'Milanov', '+37253698741', 'nikita.milanov@gmail.com', 10);
+			-- Берём тариф и дату из таблиц 
+			BEGIN
+				SELECT TOP 1 @date = CounterDate FROM CounterElect ORDER BY CounterDate DESC
+				SELECT TOP 1 @tariff = TariffPriceArea FROM TariffArea ORDER BY TariffPriceArea DESC
 
-INSERT INTO TariffArea (TariffPriceArea,TariffDate) VALUES (0.61, '2020-03-28');
+				-- Проверка, сколько хранится в таблице счётчиков и воспроизводим вычисления
+				IF(SELECT COUNT(*) FROM CounterElect) > 1
+					BEGIN
+						SELECT TOP 1 @counter1 = CounterMWH FROM CounterElect ORDER BY CounterDate DESC
+						SELECT TOP 1 @counter2 = CounterMWH FROM CounterElect WHERE CounterMWH IN (SELECT TOP 2 CounterMWH FROM CounterElect ORDER BY CounterDate DESC)
+						SET @result = @tariff * (@counter1 - @counter2)
+					END
+				ELSE
+				-- Если только 1 счётчик
+					BEGIN
+						SELECT TOP 1 @counter1 = CounterMWH FROM CounterElect ORDER BY CounterDate DESC
+						SET @result = @tariff * @counter1
+					END
+				-- Сколько нужно заплатить за квартиру
+				SELECT @perApSquare = SUM(apsquare * percentage) FROM Flats
+				SET @MonthPrice = @result/@perApSquare
 
-INSERT INTO CounterElect VALUES ('2020-01-28', 18250, 'adminD','2020-01-31 18:21:54');
+				--Вставка всей информации, что мы получили 
+				INSERT INTO PayoffFlats
+					SELECT f_no,
+					apsquare AS apsquare,
+					percentage AS percentage,
+					apsquare * percentage AS heatingFlatsSquare,
+					@MonthPrice AS FlatSquarePrice,
+					@tariff AS Tariff,
+					@MonthPrice * (apsquare * percentage) AS FlatPrice,
+					@date AS ToDate
+					FROM Flats
+
+					SELECT * FROM PayoffFlats
+			END
+		END
+GO
+
+-- Сброс процедуры
+DROP PROC CalculationOfElectricity
+
+--Запуск процедуры
+EXEC CalculationOfElectricity
+
+
+-- Триггер, показывает что вставилось в таблицу
+GO
+CREATE TRIGGER InsertOwner ON Owners
+AFTER INSERT
+AS
+	BEGIN
+		INSERT INTO OwnerHistory (Operation,CreateAt) VALUES ('INSERT', DEFAULT)
+		SELECT * FROM OwnerHistory
+	END
+GO
+
+-- Триггер, показывает что обновилось в таблице
+GO
+CREATE TRIGGER UpdateOwner ON Owners
+AFTER UPDATE
+AS
+	BEGIN
+		INSERT INTO OwnerHistory (Operation,CreateAt) VALUES ('UPDATE', DEFAULT)
+		SELECT * FROM OwnerHistory
+	END
+GO
+
+-- Триггер, показывает что удалилось из таблицы
+GO
+CREATE TRIGGER DeleteOwner ON Owners
+AFTER DELETE
+AS
+	BEGIN
+		INSERT OwnerHistory (Operation,CreateAt) VALUES ('DELETE', DEFAULT)
+		SELECT * FROM OwnerHistory
+	END
+GO
 
 -- Select tables
 SELECT * FROM Owners
 SELECT * FROM Flats
 SELECT * FROM TariffArea
 SELECT * FROM CounterElect
-
-select tariffpriceArea FROM TariffArea 
+SELECT * FROM PayoffFlats 
 
 -- Drop tables
 DROP TABLE Owners
 DROP TABLE Flats
 DROP TABLE TariffArea
 DROP TABLE CounterElect
+DROP TABLE PayoffFlats
